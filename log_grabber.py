@@ -35,16 +35,7 @@ def extract_corner_ids(html):
         corner_id = re.search(r'\d+', match).group(0)
         if corner_id not in corner_list:
             corner_list.append(corner_id)
-
-    corner_name_match = re.findall(r'data-cornername=".*', html)
-    corner_name_list = []
-    for match in corner_name_match:
-        corner_name = re.search(r'"(.*?)"', match).group(1).strip("Test").strip(" ")
-        if corner_name not in corner_name_list:
-            corner_name_list.append(corner_name)
-
-    corner_dict = {id: corner for id, corner in zip(corner_list, corner_name_list)}
-    return corner_list, corner_dict
+    return corner_list
 
 def parse_jobids(jobids_input):
     """put multiple jobids from user input into a list"""
@@ -109,12 +100,16 @@ def grab_switch_logs(corner, uut, jobid, username, password):
     response.close()
     html_log = response.text
 
+    corner_name_match = re.findall(r'cornerName :.*', html_log)
+    corner_name_match = "".join(corner_name_match)
+    corner_name = re.search(r': .*', corner_name_match).group(0).strip(': ').strip('Test').rstrip(" ")
+
     try:
         content = html_log[html_log.index("Total testcases to execute"):html_log.index("Corner - runSwitch")]
     except ValueError:
         content = "unit " + str(uut) + (" log file was not found due to incomplete corner or unit is a link partner. Please check")
 
-    return content, url
+    return content, url, corner_name
 
 def switch_log_request(jobids_input, keywords_input, username, password, option):
     """Request logs from tt3 then search for the keywords line by line
@@ -134,32 +129,28 @@ def switch_log_request(jobids_input, keywords_input, username, password, option)
         response.close()
         html = response.text
 
-        corner_list, corner_dict = extract_corner_ids(html)
+        corner_list = extract_corner_ids(html)
         uut_list = extract_uut_list(html)
         len_corner = len(corner_list)
 
         print(f'JOBID# {jobid} has total {len(corner_list)} corner(s)' + ' - Corner number: ', ','.join(map(str, range(1, len_corner + 1))))
-        print()
-
         corner_select = input(f'Press enter to search on all corners or specify corner number (using comma if there are '
                               f'multiples): ')
         print()
 
         if len(corner_select) == 0:
-            print(f'user selected all corners\n')
+            print(f'\tuser selected all corners\n')
         else:
-            print(f'user selected corner {corner_select}\n')
+            print(f'\tuser selected corner {corner_select}\n')
 
-        print(f'There are total {len(uut_list)} unit(s)' + ' - Unit number: ', ','.join(map(str, uut_list)))
-        print()
-
+        print(f'JOBID# {jobid} has total {len(uut_list)} unit(s)' + ' - Unit number: ', ','.join(map(str, uut_list)))
         uut_select = input(f'Press enter to search on all units or specify unit number (using comma if there are multiples): ')
         print()
 
         if len(uut_select) == 0:
-            print(f'user selected all corners\n')
+            print(f'\tuser selected all units\n')
         else:
-            print(f'user selected unit {uut_select}\n')
+            print(f'\tuser selected unit {uut_select}\n')
 
         if len(corner_select) == 0:
             pass
@@ -175,16 +166,16 @@ def switch_log_request(jobids_input, keywords_input, username, password, option)
             result_file = f"{jobid}_uut{uut}_{option}_result.txt"
             with open(result_file, "w") as result_file:
                 for corner in corner_list:
-                    content, url = grab_switch_logs(corner, uut, jobid, username, password)
+                    content, url, corner_name = grab_switch_logs(corner, uut, jobid, username, password)
                     # Process content starts from here
                     if len(keywords) != 0:
                         print("="*100)
-                        print(f'jobid={jobid} cornerid={corner} uut={uut}')
+                        print(f'jobid={jobid} cornerid={corner} cornername={corner_name} uut={uut}')
                         print("Keywords to search = ", keyword_list)
                         print(f'{url}')
                         print("="*100)
                         result_file.write("="*100 + "\n")
-                        result_file.write(f'jobid={jobid} cornerid={corner} uut={uut}' + "\n")
+                        result_file.write(f'jobid={jobid} cornerid={corner} cornername={corner_name} uut={uut}' + "\n")
                         result_file.write(f"URL: {url}" + "\n")
                         result_file.write("="*100 + "\n")
                         lines = content.splitlines()
