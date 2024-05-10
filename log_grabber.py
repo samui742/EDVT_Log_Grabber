@@ -100,14 +100,16 @@ def grab_switch_logs(corner, uut, jobid, username, password):
     response.close()
     html_log = response.text
 
-    corner_name_match = re.findall(r'cornerName :.*', html_log)
-    corner_name_match = "".join(corner_name_match)
-    corner_name = re.search(r': .*', corner_name_match).group(0).strip(': ').strip('Test').rstrip(" ")
-
     try:
         content = html_log[html_log.index("Total testcases to execute"):html_log.index("Corner - runSwitch")]
     except ValueError:
-        content = "unit " + str(uut) + (" log file was not found due to incomplete corner or unit is a link partner. Please check")
+        content = "unit " + str(uut) + (" log file was not found due to incomplete corner or unit is a link partner. Please check.")
+        print(f"{bcolors.BOLD}{bcolors.FAIL}log file was not found due to incomplete corner or unit is a link partner. Please check.{bcolors.ENDC}")
+        raise SystemExit
+
+    corner_name_match = re.findall(r'cornerName :.*', html_log)
+    corner_name_match = "".join(corner_name_match)
+    corner_name = re.search(r': .*', corner_name_match).group(0).strip(': ').strip('Test').rstrip(" ").
 
     return content, url, corner_name
 
@@ -170,12 +172,13 @@ def switch_log_request(jobids_input, keywords_input, username, password, option)
                     # Process content starts from here
                     if len(keywords) != 0:
                         print("="*100)
-                        print(f'jobid={jobid} cornerid={corner} cornername={corner_name} uut={uut}')
-                        print("Keywords to search = ", keyword_list)
+                        print(f'jobid= {jobid} cornerid= {corner} cornername= {corner_name} unit= switch{uut}')
+                        print("Searched Keyword(s) = ", keyword_list)
                         print(f'{url}')
                         print("="*100)
                         result_file.write("="*100 + "\n")
-                        result_file.write(f'jobid={jobid} cornerid={corner} cornername={corner_name} uut={uut}' + "\n")
+                        result_file.write(f'jobid= {jobid} cornerid= {corner} cornername= {corner_name} unit= switch{uut}' + "\n")
+                        result_file.write(f"Searched Keyword(s) = , {keyword_list}" + "\n")
                         result_file.write(f"URL: {url}" + "\n")
                         result_file.write("="*100 + "\n")
                         lines = content.splitlines()
@@ -224,6 +227,7 @@ if __name__ == '__main__':
     \n\
     1 - search by keywords "user can specify multiple keywords" \n\
     2 - diag traffic failure "a set of pre-defined keywords specifically for diag traffic log scrubbing"\n\
+    3 - istardust diag traffic failure "a set of pre-defined keywords specifically for istardust traffic log scrubbing"\n\
     \n\
     Please enter the option number: ')
 
@@ -236,4 +240,9 @@ if __name__ == '__main__':
     elif options == "2":
         option = "diag_traffic"
         keywords = "FAILED VALIDATION while, FAILED VALIDATION -, FAIL**  E, FAIL**  P, TESTCASE START -, Test(s) failed:"
+        switch_log_request(jobids, keywords, username, password, option)
+
+    elif options == "3":
+        option = "istardust_traffic"
+        keywords = "TESTCASE START -, FAILED VALIDATION while, FAILED VALIDATION -, Pass Fail, Fail Pass, Fail Fail, Status: Failed, ERROR DOYLE_FPGA, FAILED: Timeout,  ERROR: Leaba_Err"
         switch_log_request(jobids, keywords, username, password, option)
