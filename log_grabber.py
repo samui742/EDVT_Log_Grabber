@@ -109,7 +109,7 @@ def grab_switch_logs(corner, uut, jobid, username, password):
 
     corner_name_match = re.findall(r'cornerName :.*', html_log)
     corner_name_match = "".join(corner_name_match)
-    corner_name = re.search(r': .*', corner_name_match).group(0).strip(': ').strip('Test').rstrip(" ").
+    corner_name = re.search(r': .*', corner_name_match).group(0).strip(': ').strip('Test').rstrip(" ")
 
     return content, url, corner_name
 
