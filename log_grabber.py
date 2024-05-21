@@ -69,14 +69,14 @@ def parse_keywords(keywords_input):
 
     return keyword_list
 
-def parse_corners(corners_list, corner_select):
+def parse_corners(corner_list, corner_select):
     """To create a new corner list from the list of corner that user selected"""
 
     corner_map = []
     corner_select = [x.strip() for x in corner_select.split(",")]
 
     for item in corner_select:
-        corner_map.append(corners_list[int(item) - 1]) # call value from corner_list by index
+        corner_map.append(corner_list[int(item) - 1]) # call value from corner_list by index
 
     return corner_map
 
@@ -114,23 +114,29 @@ def grab_switch_logs(corner, uut, jobid, username, password):
 
     return content, url, corner_name
 
-def switch_log_request(jobids_input, keywords_input, username, password, option):
+# def switch_log_request(jobids_input, keywords_input, username, password, option):
+def switch_log_request():
     """Request logs from tt3 then search for the keywords line by line
     then print out on the console and also write into a text file"""
+    #
+    # jobid_list = parse_jobids(jobids)
+    # print("\nUser Input jobIDs  = ", jobid_list)
+    # print()
+    #
+    # keyword_list = parse_keywords(keywords)
+    # print("Keywords to search = ", keyword_list)
+    # print()
 
-    jobid_list = parse_jobids(jobids_input)
-    print("\nUser Input jobIDs  = ", jobid_list)
-    print()
-
-    keyword_list = parse_keywords(keywords_input)
-    print("Keywords to search = ", keyword_list)
-    print()
+    jobid_list = extract_user_input(jobids)
 
     for jobid in jobid_list:
         url = f"https://wwwin-testtracker3.cisco.com/trackerApp/cornerTest/{jobid}"
         response = requests.get(url, auth=(username, password))
         response.close()
         html = response.text
+
+        global corner_list
+        global uut_list
 
         corner_list = extract_corner_ids(html)
         uut_list = extract_uut_list(html)
@@ -208,39 +214,149 @@ def switch_log_request(jobids_input, keywords_input, username, password, option)
                                         result_file.write("\t\t\t" + line + "\n")
             result_file.close()
 
-def diag_sfp_report(jobids, keywords, username, password, option):
+# def extract_user_input (jobids_input, keywords_input, username, password, option):
 
-    jobID_list = []
-    for i in jobids.split(','):
-        jobID_list.append(i.strip())
-    print("USER INPUT: ", jobID_list)
+def user_selection ():
 
-    for jobid in jobID_list:
+    selected_corner_list = []
+    selected_uut_list = []
+
+    print(f'\nJOBID# {jobid} has total {len(total_corner_list)} corner(s)' + ' - Corner number: ',
+          ','.join(map(str, range(1, len_corner + 1))))
+    corner_select = input(f'Press enter to search on all corners or specify corner number (using comma if there are '
+                          f'multiples): ')
+    print()
+
+    if len(corner_select) == 0:
+        print(f'\tuser selected all corners\n')
+    else:
+        print(f'\tuser selected corner {corner_select}\n')
+
+    print(f'JOBID# {jobid} has total {len(total_uut_list)} unit(s)' + ' - Unit number: ', ','.join(map(str, total_uut_list)))
+    uut_select = input(
+        f'Press enter to search on all units or specify unit number (using comma if there are multiples): ')
+    print()
+
+    # Mapping between total and user selected
+    if len(uut_select) == 0:
+        print(f'\tuser selected all units\n')
+    else:
+        print(f'\tuser selected unit {uut_select}\n')
+
+    if len(corner_select) == 0:
+        selected_corner_list = total_corner_list
+    else:
+        # selected_corner_list = parse_corners(corner_list, corner_select)
+        corner_select = [x.strip() for x in corner_select.split(",")]
+        for item in corner_select:
+            selected_corner_list.append(total_corner_list[int(item) - 1])  # call value from corner_list by index
+
+    if len(uut_select) == 0:
+        selected_uut_list = total_uut_list
+    else:
+        # selected_uut_list = parse_uuts(uut_list, uut_select)
+        uut_select = [x.strip() for x in uut_select.split(",")]
+        for item in uut_select:
+            if item in total_uut_list:
+                selected_uut_list.append(int(item))
+
+    print(selected_corner_list)
+    print(selected_uut_list)
+    return selected_corner_list, selected_uut_list
+
+def extract_user_input (jobids):
+    """Request logs from tt3 then search for the keywords line by line
+    then print out on the console and also write into a text file"""
+
+    global jobid_list
+    global keyword_list
+
+    jobid_list = []
+
+    if "," in str(jobids):
+        jobid_list.extend(jobids.split(','))
+        jobid_list = [item.strip() for item in jobid_list]
+    else:
+        jobid_list.append(str(jobids))
+
+    keyword_list = []
+    if "," in str(keywords):
+        keyword_list = keywords.split(',')
+        keyword_list = [item.strip() for item in keyword_list]
+    else:
+        keyword_list.append(str(keywords).strip())
+
+    # Add to support comma search. User has to input as semicolon
+    for i in range(len(keyword_list)):
+        if ";" in keyword_list[i]:
+            x = keyword_list[i].replace(";", ",")
+            keyword_list[i] = x
+
+    return jobid_list
+
+# def diag_sfp_report(jobids, keywords, username, password, option):
+def diag_sfp_report():
+
+    jobid_list = extract_user_input(jobids)
+
+    # jobID_list = []
+    # for i in jobids.split(','):
+    #     jobID_list.append(i.strip())
+    # print("USER INPUT: ", jobID_list)
+    global jobid
+    for jobid in jobid_list:
         sfp_type_result = []
         url = f"https://wwwin-testtracker3.cisco.com/trackerApp/cornerTest/{jobid}"
         response = requests.get(url, auth=(username, password))
         response.close()
         html = response.text
-        total_corner = extract_total_corner(html)
-        total_uut = extract_total_uut(html)
-        print("total_corner", total_corner)
-        print("total_uut", total_uut)
 
-        for uut in total_uut:
+        global total_corner_list
+        global total_uut_list
+        global len_corner
+
+        # corner_list = extract_corner_ids(html)
+        total_corner_list = extract_corner_ids(html)
+        # uut_list = extract_uut_list(html)
+        total_uut_list = extract_uut_list(html)
+        # len_corner = len(corner_list)
+        len_corner = len(total_corner_list)
+
+        selected_corner_list, selected_uut_list = user_selection()
+        # total_corner = extract_total_corner(html)
+        # total_uut = extract_total_uut(html)
+        # print("total_corner", total_corner)
+        # print("total_uut", total_uut)
+
+        print(selected_corner_list)
+        print(selected_uut_list)
+
+        # for uut in total_uut:
+        # for uut in uut_list:
+        for uut in selected_uut_list:
+            print("uut", uut)
             sfp_file_result = f'{jobid}_switch{uut}_sfp_result.txt'
             with open(sfp_file_result, "w") as sfp_file_result:
-                for corner in total_corner:
-                    sfpeeprom_csv_file = sfp_tt3_log_request(jobid, username, password, corner)
+                # for corner in total_corner:
+                # for corner in corner_list:
+                for corner in selected_corner_list:
+                    print("jobid", jobid)
+                    print("corner", corner)
+                    # sfpeeprom_csv_file = sfp_tt3_log_request(jobid, username, password, corner)
+                    sfpeeprom_csv_file = sfp_tt3_log_request(jobid, corner)
                     list_of_port_dict, sfp_type_result = create_list_dict_sfp(sfpeeprom_csv_file, uut)
-                    # print(f"\nPROCESSING ON JOBID: {jobid} CORNERID: {corner} UNIT: {uut}")
+                    print(f"\nPROCESSING ON JOBID: {jobid} CORNERID: {corner} UNIT: {uut}")
                     # look for failed sfp port
-                    fail_port_single, url, serial_number = check_sfp_diag_traffic(jobid, corner, uut, username, password)
+                    # fail_port_single, url, serial_number = check_sfp_diag_traffic(jobid, corner, uut, username, password)
+                    fail_port_single, url, serial_number = check_sfp_diag_traffic(jobid, corner, uut)
+                    # print_sfp_result(list_of_port_dict, fail_port_single, sfp_file_result, jobid, corner, uut, url, serial_number)
                     print_sfp_result(list_of_port_dict, fail_port_single, sfp_file_result, jobid, corner, uut, url, serial_number)
                     # print_sfp_result(list_of_port_dict, fail_port_single, sfp_file_result, jobid, corner, uut, sfp_type_result)
                 print_sfp_summary(jobid, uut, sfp_type_result, sfp_file_result)
             sfp_file_result.close()
 
-def sfp_tt3_log_request(jobid, username, password, corner):
+# def sfp_tt3_log_request(jobid, username, password, corner):
+def sfp_tt3_log_request(jobid, corner):
     "Retrieve SFP data from the user-provided jobID list by making a request to TT3 \
     then filter out all the unnecessary text then print out the table format"
 
@@ -300,7 +416,7 @@ def create_list_dict_sfp(sfpeeprom_csv_file, unit):
     # uut_list = []
     list_of_port_dict = []
     for line in lines:
-        if "switch" + unit in line:
+        if "switch" + str(unit) in line:
             s = {}
             (s["jobid"], s["cornerid"], s["uut"], s["port"], s["type"], s["vendor"], s["mfg"], s["sn"], s["create"],
              s["create_date"], s["update"], s["update_date"], s["slot"]) = line.split(",")
@@ -422,7 +538,8 @@ def print_sfp_result(list_of_port_dict, failed_port_single, sfp_file_result, job
                 f'{bcolors.OKGREEN}{item["port"].strip("]"):<10} {item["type"]:<20} {item["pid"]:<20} {item["vendor"]:<20} {item["mfg"]:<20} {item["sn"]:<20} {item["port_result"]:<20}{bcolors.ENDC}')
             sfp_file_result.write(f'{item["port"].strip("]"):<10} {item["type"]:<20} {item["pid"]:<20} {item["vendor"]:<20} {item["mfg"]:<20} {item["sn"]:<20} {item["port_result"]:<20}' + '\n')
 
-def check_sfp_diag_traffic(jobid, corner, uut, username, password):
+# def check_sfp_diag_traffic(jobid, corner, uut, username, password):
+def check_sfp_diag_traffic(jobid, corner, uut):
 
     result = []
     url = f"https://wwwin-testtracker3.cisco.com/trackerApp/oneviewlog/switch{uut}.log?page=1&corner_id={corner}"
@@ -463,7 +580,7 @@ def check_sfp_diag_traffic(jobid, corner, uut, username, password):
     traffic_failed_combination_list = []
 
     for item in result:
-        switch_number = 'switch' + item['uut']
+        switch_number = 'switch' + str(item['uut'])
 
         for info in item['uutinfo']:
             if "SYSTEM_SERIAL" in info:
@@ -535,6 +652,12 @@ def print_sfp_summary(jobid, uut, sfp_type_result, sfp_file_result):
 
 if __name__ == '__main__':
 
+    global username
+    global password
+    global jobids
+    global option
+    global keywords
+
     banner = text2art("EDVT \nLog Scrubber", space=1)
     print("\n" + banner + "\n")
 
@@ -556,23 +679,31 @@ if __name__ == '__main__':
     \n\
     Please enter the option number: ')
 
+
+
     if options == "1":
         # keywords = " MODEL_NUM,  SYSTEM_SERIAL, Test(s) failed:, test(s) failed"
         option = "keyword_search"
         keywords = input("Enter keywords separate by comma: ")
-        switch_log_request(jobids, keywords, username, password, option)
+        # switch_log_request(jobids, keywords, username, password, option)
+        switch_log_request()
 
     elif options == "2":
         option = "diag_traffic"
         keywords = "FAILED VALIDATION while, FAILED VALIDATION -, FAIL**  E, FAIL**  P, TESTCASE START -, Test(s) failed:"
-        switch_log_request(jobids, keywords, username, password, option)
+        # switch_log_request(jobids, keywords, username, password, option)
+        switch_log_request()
 
     elif options == "3":
         option = "istardust_traffic"
         keywords = "TESTCASE START -, FAILED VALIDATION while, FAILED VALIDATION -, Pass Fail, Fail Pass, Fail Fail, Status: Failed, ERROR DOYLE_FPGA, FAILED: Timeout,  ERROR: Leaba_Err"
-        switch_log_request(jobids, keywords, username, password, option)
+        # switch_log_request(jobids, keywords, username, password, option)
+        switch_log_request()
 
     elif options == "4":
         option = "diag_sfp_summary"
         keywords = "FAILED VALIDATION while, FAILED VALIDATION -, FAIL**  E, FAIL**  P, TESTCASE START -"
-        diag_sfp_report(jobids, keywords, username, password, option)
+        # diag_sfp_report(jobids, keywords, username, password, option)
+        diag_sfp_report()
+
+
