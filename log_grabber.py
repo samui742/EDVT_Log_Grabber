@@ -101,16 +101,20 @@ def grab_switch_logs():
     response.close()
     html_log = response.text
 
+
+
     try:
         content = html_log[html_log.index("Total testcases to execute"):html_log.index("Corner - runSwitch")]
+
+        corner_name_match = re.findall(r'cornerName :.*', html_log)
+        corner_name_match = "".join(corner_name_match)
+        corner_name = re.search(r': .*', corner_name_match).group(0).strip(': ').strip('Test').rstrip(" ")
+
     except ValueError:
         content = "unit " + str(uut) + (" log file was not found due to incomplete corner or unit is a link partner. Please check.")
-        print(f"{bcolors.BOLD}{bcolors.FAIL}log file was not found due to incomplete corner or unit is a link partner. Please check.{bcolors.ENDC}")
-        raise SystemExit
-
-    corner_name_match = re.findall(r'cornerName :.*', html_log)
-    corner_name_match = "".join(corner_name_match)
-    corner_name = re.search(r': .*', corner_name_match).group(0).strip(': ').strip('Test').rstrip(" ")
+        # print(f"{bcolors.BOLD}{bcolors.FAIL}log file was not found due to incomplete corner or unit is a link partner. Please check.{bcolors.ENDC}")
+        corner_name = "Incomplete"
+        # raise SystemExit
 
     return content, url, corner_name
 
@@ -137,8 +141,11 @@ def switch_log_request():
 
         selected_corner_list, selected_uut_list = user_selection()
 
+        # print(f'selected_uut_list is {selected_uut_list}')
+
         global uut
         for uut in selected_uut_list:
+            print(f'Processing switch{uut}....')
             result_file = f"{jobid}_uut{uut}_{option}_result.txt"
             with open(result_file, "w") as result_file:
                 # for corner in corner_list:
@@ -217,14 +224,17 @@ def user_selection ():
         for item in corner_select:
             selected_corner_list.append(total_corner_list[int(item) - 1])  # call value from corner_list by index
 
+    # print(f'user selected unit {uut_select} after mapped with total_uut_list {total_uut_list}')
     if len(uut_select) == 0:
         selected_uut_list = total_uut_list
     else:
         uut_select = [x.strip() for x in uut_select.split(",")]
         for item in uut_select:
+            # print(f'{item} item in uut_select list')
             if item in total_uut_list:
                 selected_uut_list.append(int(item))
 
+    # print(f'selected_uut_list is {selected_uut_list}')
     return selected_corner_list, selected_uut_list
 
 def extract_user_input (jobids):
