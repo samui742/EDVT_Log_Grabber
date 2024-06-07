@@ -101,10 +101,9 @@ def grab_switch_logs():
     response.close()
     html_log = response.text
 
-
-
     try:
-        content = html_log[html_log.index("Total testcases to execute"):html_log.index("Corner - runSwitch")]
+        # content = html_log[html_log.index("Total testcases to execute"):html_log.index("Corner - runSwitch")]
+        content = html_log[html_log.index("Total testcases to execute"):html_log.index("/tmp/tt3")]
 
         corner_name_match = re.findall(r'cornerName :.*', html_log)
         corner_name_match = "".join(corner_name_match)
@@ -265,6 +264,23 @@ def extract_user_input (jobids):
             keyword_list[i] = x
 
     return jobid_list
+
+
+def extract_command_input (command_user):
+    """function to covert input from user into lists"""
+
+    global command_list
+
+    command_list = []
+
+    if "," in str(command_user):
+        command_list.extend(command_user.split(','))
+        command_list = [item.strip() for item in command_list]
+        command_list = ["command is : {" + item for item in command_list]
+    else:
+        command_list.append("command is : {" + str(command_user))
+
+    return command_list
 
 def diag_sfp_report():
 
@@ -592,6 +608,169 @@ def print_sfp_summary(jobid, uut, sfp_type_result, sfp_file_result):
         print(f'{index},{item_list[0]},{item_list[3]},{item_list[1]},{item_list[2]}')
         sfp_file_result.write(f'{index},{item_list[0]},{item_list[3]},{item_list[1]},{item_list[2]}' + '\n')
 
+
+def command_output_request(jobids_input, command_user, username, password, option):
+
+    jobid_list = extract_user_input(jobids)
+    command_list = extract_command_input(command_user)
+    # print("command_list", command_list)
+
+    global jobid
+    for jobid in jobid_list:
+        url = f"https://wwwin-testtracker3.cisco.com/trackerApp/cornerTest/{jobid}"
+        response = requests.get(url, auth=(username, password))
+        response.close()
+        html = response.text
+
+        global total_corner_list
+        global total_uut_list
+        global len_corner
+
+        total_corner_list = extract_corner(html)
+        total_uut_list = extract_uut(html)
+        len_corner = len(total_corner_list)
+
+        selected_corner_list, selected_uut_list = user_selection()
+        global uut
+        for uut in selected_uut_list:
+            result_file = f'{jobid}_switch{uut}_{command_user}_result.txt'
+            with open(result_file, "w") as result_file:
+                global corner
+                for corner in selected_corner_list:
+                    for command in command_list:
+                        # print("command", command)
+                        # print(f"searching command = {command} .....")
+                        # command = "command is : {" + command
+                        start_list = []
+                        stop_list = []
+                        content, url, corner_name = grab_switch_logs()
+                        lines = content.splitlines()
+
+                        print("\n" + "="*100)
+                        print(f'jobid= {jobid} cornerid= {corner} cornername= {corner_name} unit= switch{uut}')
+                        print("Searched Command = ", command)
+                        print(f'{url}')
+                        print("="*100)
+                        result_file.write("="*100 + "\n")
+                        result_file.write(f'jobid= {jobid} cornerid= {corner} cornername= {corner_name} unit= switch{uut}' + "\n")
+                        result_file.write(f"Searched Command = , {command}" + "\n")
+                        result_file.write(f"URL: {url}" + "\n")
+                        result_file.write("="*100 + "\n")
+
+                        # To specify stop point of each command output
+                        # TT3 might change the print out which will affect the code here
+                        stop_keyword = "command is :"
+                        stop_keyword_2 = "Corner - runSwitch"
+                        stop_keyword_3 = f"FAIL_FLAG FROM EDVT_CSVPARSE FOR COMMAND"
+                        lines = content.split('\n')
+                        for i in range(len(lines)):
+                            if command in lines[i]:
+                                start_list.append(i)
+
+                        # START SEARCHING FOR STOP POINT FROM WHERE THE COMMAND IS FOUND THEN BREAK ONCE FOUND
+                        for item in start_list:
+                            for i in range(item + 1, len(lines)):
+                                if stop_keyword in lines[i] or stop_keyword_2 in lines[i] or stop_keyword_3 in lines[i]:
+                                    stop_list.append(i)
+                                    break
+
+                        # MAPPING BETWEEN START AND STOP POINT LIST
+                        mapped = list(zip(start_list, stop_list))
+
+                        # WRITE RESULT INTO TEXT FILE
+                        command_output = []
+                        for count, (command_user_index, stop_keyword_index) in enumerate(mapped, 1):
+                            if option != "bert_diag":
+                                print(f"\n################################################## {command.upper().strip('command is : {')} OUTPUT FOUND # {count} ##################################################\n")
+                                result_file.write(f"\n################################################## {command.upper().strip('command is : {')} OUTPUT FOUND # {count} ##################################################\n")
+
+                            for line in lines[command_user_index - 1:stop_keyword_index + 1]:
+                                if option != "bert_diag":
+                                    print("\t\t" + line)
+                                    result_file.write("\t\t" + line + "\n")
+                                if option == "bert_diag":
+                                    command_output.append(line)
+
+                        # print(*command_output, sep='\n')
+                        if option == "bert_diag":
+                            # find index of the start and stop line of bershowresult command then append into a list
+                            header = " P#     Transmit      TxBytes    TxColFcs Receive       RxBytes      RxFcs Align RxCol OvrSz UndSz RxSym OvRun"
+                            footer = "Traf&gt; *****************************************************************************************************************"
+
+
+                            # TO REMOVE HEADER FOOTER
+                            new_list = []
+                            for i in range(len(command_output)):
+                                if header in command_output[i]:
+                                    header_index = i
+                                    new_list.append(header_index)
+                                if footer in command_output[i]:
+                                    footer_index = i
+                                    new_list.append(footer_index)
+                            # print(*new_list)
+
+                            # pair start and stop index in the list so we can process each bershowresult output at a time
+                            pair_list = []
+                            for i in range(len(new_list)):
+                                if i % 2 == 0:
+                                    pair_list.append((new_list[i], new_list[(i + 1) % len(new_list)]))
+
+                            # print(*pair_list)
+                            # print("==" * 100 + "\n" + "SUMMARY OF FAILED PORTS" + "\n" + "==" * 100)
+                            print("\n\t" + "SUMMARY OF FAILED PORTS" + "\n\t" + "-" * 100)
+
+                            # print("command_output", *command_output, sep='\n')
+                            # print("new_list", *new_list, sep='\n')
+
+                            for index, item in enumerate(pair_list, 1):
+                                # print("==" * 100 + "\n" + f"{command} output number #" + str(index) + "\n", item)
+                                print("\n" + "\t\t" + f"{command.strip('command is : {')} output number #" + str(index))
+                                print("\t\t" + "==" * 50)
+                                (p1, p2) = item
+                                # print(*lines[p1:p2], sep='\n')
+                                focus_input = command_output[p1:p2]
+                                focus_input.pop(1)
+                                focus_input.pop(-1)
+                                focus_input.pop(-1)
+                                # focus_input = [item.strip() for item in focus_input]
+
+                                # print(*focus_input, sep='\n')
+                                # print(len(focus_input))
+
+                                s = {}
+                                port_list = []
+                                for x in range(len(focus_input)):
+                                    f = focus_input[x].strip()
+                                    f = " ".join(focus_input[x].split())
+                                    l = f.split()
+                                    # print(x)
+                                    # print(l)
+
+                                    # print(focus_input[i])
+                                    # (*other, s["Port"], s["Transmit"], s["TxBytes"], s["TxErr"], s["Receive"], s["RxBytes"], s["RxFcs"], s["RxIpg"],
+                                    #  s["RxCol"], s["OvrSz"], s["UndSz"], s["RxSym"], s["OvRun"]) = l
+
+                                    (*other, port, transmit, txbytes, txerr, receive, rxbytes, rxfcs, rxipg,
+                                     rxcol, ovsz, undsz,
+                                     rxsym, ovrun) = l
+
+                                    # print(s["Port"])
+                                    port = port.strip("*")
+                                    # print(port)
+                                    port_list.append(port)
+
+                                    # if port == "15":
+                                    #     print(focus_input[x])
+
+                                    zero = "00000"
+                                    if rxfcs != zero or rxipg != zero or rxcol != zero or ovsz != zero or undsz != zero or rxsym != zero or ovrun != zero:
+                                        print("\t\t\t" + focus_input[x])
+
+                                port_list.pop(0)
+                                # print(port_list)
+
+            result_file.close()
+
 ############ MAIN ################
 
 if __name__ == '__main__':
@@ -620,7 +799,8 @@ if __name__ == '__main__':
     2 - diag traffic failure "a set of pre-defined keywords specifically for diag traffic log scrubbing"\n\
     3 - istardust diag traffic failure "a set of pre-defined keywords specifically for istardust traffic log scrubbing"\n\
     4 - diag sfp summary "generate sfp summary by using output from opticaltest to map with edvt database"\n\
-    \n\
+    5 - search specific command output "user can specific the command(s) that user would like to see the output\n\
+    6 - bert diag ixia\n\
     Please enter the option number: ')
 
 
@@ -644,5 +824,18 @@ if __name__ == '__main__':
         option = "diag_sfp_summary"
         keywords = "FAILED VALIDATION while, FAILED VALIDATION -, FAIL**  E, FAIL**  P, TESTCASE START -"
         diag_sfp_report()
+
+    elif options == "5":
+        option = "command_output"
+        command = input("Enter the command: ")
+        # command = "command is : {" + command
+        keywords = "FAILED VALIDATION while, FAILED VALIDATION -, FAIL**  E, FAIL**  P, TESTCASE START -"
+        command_output_request(jobids, command, username, password, option)
+
+    elif options == "6":
+        option = "bert_diag"
+        command = "bershowresult"
+        keywords = "FAILED VALIDATION while, FAILED VALIDATION -, FAIL**  E, FAIL**  P, TESTCASE START -"
+        command_output_request(jobids, command, username, password, option)
 
 
