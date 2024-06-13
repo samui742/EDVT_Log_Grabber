@@ -4,6 +4,9 @@ import pyautogui
 from art import text2art
 import os
 
+from pprint import pp
+
+
 class bcolors:
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
@@ -177,15 +180,25 @@ def switch_log_request():
                                 result_file.write(line + "\n")
 
                             for keyword in keyword_list:
-                                if keyword in line:
+                                match_k = re.search(f"{keyword}", line)
+                                if match_k:
+                                    # print("line", line)
+                                    # print(match_k.group(0))
                                     line_with_keyword_list.append(line)
                                     # To display testcase names on the report
                                     if "TESTCASE START" in line:
                                         print("\t" + f'{bcolors.OKBLUE}{line}{bcolors.ENDC}')
                                         result_file.write("\t" + line + "\n")
                                     else:
-                                        print("\t\t\t" + f'{bcolors.FAIL}{line}{bcolors.ENDC}')
-                                        result_file.write("\t\t\t" + line + "\n")
+                                        if "fail" in line.casefold():
+                                            print("\t\t\t" + f'{bcolors.FAIL}{line}{bcolors.ENDC}')
+                                            result_file.write("\t\t\t" + line + "\n")
+                                        elif "pass" in line.casefold():
+                                            print("\t\t\t" + f'{bcolors.OKGREEN}{line}{bcolors.ENDC}')
+                                            result_file.write("\t\t\t" + line + "\n")
+                                        else:
+                                            print("\t\t\t" + f'{bcolors.OKBLUE}{line}{bcolors.ENDC}')
+                                            result_file.write("\t\t\t" + line + "\n")
             result_file.close()
 
 def user_selection ():
@@ -662,6 +675,7 @@ def command_output_request(jobids_input, command_user, username, password, optio
                         stop_keyword = "command is :"
                         stop_keyword_2 = "Corner - runSwitch"
                         stop_keyword_3 = f"FAIL_FLAG FROM EDVT_CSVPARSE FOR COMMAND"
+                        stop_keyword_4 = f"platform :"
                         lines = content.split('\n')
                         for i in range(len(lines)):
                             if command in lines[i]:
@@ -670,7 +684,7 @@ def command_output_request(jobids_input, command_user, username, password, optio
                         # START SEARCHING FOR STOP POINT FROM WHERE THE COMMAND IS FOUND THEN BREAK ONCE FOUND
                         for item in start_list:
                             for i in range(item + 1, len(lines)):
-                                if stop_keyword in lines[i] or stop_keyword_2 in lines[i] or stop_keyword_3 in lines[i]:
+                                if stop_keyword in lines[i] or stop_keyword_2 in lines[i] or stop_keyword_3 in lines[i] or stop_keyword_4 in lines[i]:
                                     stop_list.append(i)
                                     break
 
@@ -722,52 +736,129 @@ def command_output_request(jobids_input, command_user, username, password, optio
                             # print("command_output", *command_output, sep='\n')
                             # print("new_list", *new_list, sep='\n')
 
+                            list_of_dict = []
                             for index, item in enumerate(pair_list, 1):
                                 # print("==" * 100 + "\n" + f"{command} output number #" + str(index) + "\n", item)
                                 print("\n" + "\t\t" + f"{command.strip('command is : {')} output number #" + str(index))
                                 print("\t\t" + "==" * 50)
+                                print("\n\t\t" + "PORTS WITH ERROR" + "\n")
                                 (p1, p2) = item
                                 # print(*lines[p1:p2], sep='\n')
                                 focus_input = command_output[p1:p2]
                                 focus_input.pop(1)
                                 focus_input.pop(-1)
                                 focus_input.pop(-1)
+
+                                # To remove table header
+                                focus_input.pop(0)
                                 # focus_input = [item.strip() for item in focus_input]
 
-                                # print(*focus_input, sep='\n')
+                                print(*focus_input, sep='\n')
                                 # print(len(focus_input))
 
-                                s = {}
+
                                 port_list = []
                                 for x in range(len(focus_input)):
+                                    s = {}
                                     f = focus_input[x].strip()
                                     f = " ".join(focus_input[x].split())
-                                    l = f.split()
+                                    line_interface = f.split()
+                                    print(line_interface)
                                     # print(x)
                                     # print(l)
 
                                     # print(focus_input[i])
-                                    # (*other, s["Port"], s["Transmit"], s["TxBytes"], s["TxErr"], s["Receive"], s["RxBytes"], s["RxFcs"], s["RxIpg"],
-                                    #  s["RxCol"], s["OvrSz"], s["UndSz"], s["RxSym"], s["OvRun"]) = l
 
-                                    (*other, port, transmit, txbytes, txerr, receive, rxbytes, rxfcs, rxipg,
-                                     rxcol, ovsz, undsz,
-                                     rxsym, ovrun) = l
+                                    (*other, s["port"], s["transmit"], s["txbytes"], s["txerr"], s["receive"],
+                                     s["rxbytes"], s["rxfcs"], s["rxipg"], s["rxcol"], s["ovsz"], s["undsz"],
+                                     s["rxsym"], s["ovrun"]) = line_interface
 
-                                    # print(s["Port"])
-                                    port = port.strip("*")
-                                    # print(port)
-                                    port_list.append(port)
+                                    # (*other, port, transmit, txbytes, txerr, receive, rxbytes, rxfcs, rxipg,
+                                    #  rxcol, ovsz, undsz,
+                                    #  rxsym, ovrun) = line_interface
 
-                                    # if port == "15":
-                                    #     print(focus_input[x])
+                                    s["port"] = s["port"].strip("*")
+                                    port_list.append(s["port"])
+                                    list_of_dict.append(s)
 
                                     zero = "00000"
-                                    if rxfcs != zero or rxipg != zero or rxcol != zero or ovsz != zero or undsz != zero or rxsym != zero or ovrun != zero:
-                                        print("\t\t\t" + focus_input[x])
 
-                                port_list.pop(0)
+                                    # if rxfcs != zero or rxipg != zero or rxcol != zero or ovsz != zero or undsz != zero or rxsym != zero or ovrun != zero:
+                                    #     print("\t\t\t" + focus_input[x])
+                                    #
+                                    # if transmit == "0000000000":
+                                    #     print("\t\t\t" + focus_input[x])
+
+                                    if s["rxfcs"] != zero or s["rxipg"] != zero or s["rxcol"] != zero or s["ovsz"] != zero or s["undsz"] != zero or s["rxsym"] != zero or s["ovrun"] != zero:
+                                        print(f"{bcolors.FAIL}\t\t\t {focus_input[x]}{bcolors.ENDC}")
+
+                                    if s["transmit"] == "0000000000":
+                                        print(f"{bcolors.FAIL}\t\t\t {focus_input[x]}{bcolors.ENDC}")
+
+                                # port_list.pop(0) # Remove first white space column
                                 # print(port_list)
+
+                                pp(list_of_dict)
+
+####################### TRAFFIC COUNTER ################
+
+                                snake_traffic = "yes"
+                                print("\n\t\t" + "PORTS WITH PACKETS DROP" + "\n")
+
+                                if snake_traffic == "yes":
+                                    forward_receive_list = [0, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23]
+                                    forward_transmit_list = [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 1]
+
+                                    zipped = zip(forward_receive_list, forward_transmit_list)
+                                    print("\n\t\t\t" + "FORWARDING DIRECTION :" + "\n")
+                                    for first, second in zipped:
+                                        if not list_of_dict[first]["receive"] == list_of_dict[second]["transmit"]:
+                                            print(
+                                                f'\t\t\tforward direction receive port {list_of_dict[first]["port"]} equals transmit port {list_of_dict[second]["port"]}')
+                                        else:
+                                            print(
+                                                f'{bcolors.FAIL}\t\t\t\tFAILURE: \t\tFORWARD DIRECTION port {list_of_dict[first]["port"]} receives {list_of_dict[first]["receive"]} does not equal to port {list_of_dict[second]["port"]} transmit {list_of_dict[second]["transmit"]}{bcolors.ENDC}')
+
+                                    backward_receive_list = [1, 22, 20, 18, 16, 14, 12, 10, 8, 6, 4, 2]
+                                    backward_transmit_list = [23, 21, 19, 17, 15, 13, 11, 9, 7, 5, 3, 0]
+
+                                    zipped = zip(backward_receive_list, backward_transmit_list)
+                                    print("\n\t\t\t" + "BACKWARDING DIRECTION :" + "\n")
+                                    for first, second in zipped:
+                                        if list_of_dict[first]["receive"] == list_of_dict[second]["transmit"]:
+                                            print(
+                                                f'\t\t\tbackward direction receive port {list_of_dict[first]["port"]} equals transmit port {list_of_dict[second]["port"]}')
+                                        else:
+                                            print(
+                                                f'{bcolors.FAIL}\t\t\t\tFAILURE: \t\tBACKWARD DIRECTION port {list_of_dict[first]["port"]} receives {list_of_dict[first]["receive"]} does not equal to port {list_of_dict[second]["port"]} transmit {list_of_dict[second]["transmit"]}{bcolors.ENDC}')
+                                else:
+                                    forward_receive_list = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22]
+                                    forward_transmit_list = [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23]
+
+                                    zipped = zip(forward_receive_list, forward_transmit_list)
+                                    print("\n\t\t\t" + "FORWARDING DIRECTION :" + "\n")
+                                    for first, second in zipped:
+                                        if list_of_dict[first]["receive"] == list_of_dict[second]["transmit"]:
+                                            print(
+                                                f'\t\t\tforward direction receive port {list_of_dict[first]["port"]} {list_of_dict[first]["receive"]} frames equals transmit port {list_of_dict[second]["port"]} {list_of_dict[second]["transmit"]} frames')
+                                        else:
+                                            print(
+                                                f'{bcolors.FAIL}\t\t\t\tFAILURE: FORWARD DIRECTION port {list_of_dict[first]["port"]} receives {list_of_dict[first]["receive"]} does not equal to port {list_of_dict[second]["port"]} transmit {list_of_dict[second]["transmit"]}{bcolors.ENDC}')
+
+                                    backward_receive_list = [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23]
+                                    backward_transmit_list = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22]
+
+                                    zipped = zip(backward_receive_list, backward_transmit_list)
+                                    print("\n\t\t\t" + "BACKWARDING DIRECTION :" + "\n")
+                                    for first, second in zipped:
+                                        if list_of_dict[first]["receive"] == list_of_dict[second]["transmit"]:
+                                            print(
+                                                f'\t\t\tbackward direction receive port {list_of_dict[first]["port"]} {list_of_dict[first]["receive"]} frames equals transmit port {list_of_dict[second]["port"]} {list_of_dict[second]["transmit"]} frames')
+                                        else:
+                                            print(
+                                                f'{bcolors.FAIL}\t\t\t\tFAILURE: BACKWARD DIRECTION port {list_of_dict[first]["port"]} receives {list_of_dict[first]["receive"]} does not equal to port {list_of_dict[second]["port"]} transmit {list_of_dict[second]["transmit"]}{bcolors.ENDC}')
+
+            
 
             result_file.close()
 
@@ -800,8 +891,9 @@ if __name__ == '__main__':
     3 - istardust diag traffic failure "a set of pre-defined keywords specifically for istardust traffic log scrubbing"\n\
     4 - diag sfp summary "generate sfp summary by using output from opticaltest to map with edvt database"\n\
     5 - search specific command output "user can specific the command(s) that user would like to see the output\n\
-    6 - bert diag ixia\n\
-    Please enter the option number: ')
+    6 - ber diag (non-snake traffic)\n\
+    7 - istardust poe supply redundancy\n\
+    \n\nPlease enter the option number: ')
 
 
 
@@ -838,4 +930,7 @@ if __name__ == '__main__':
         keywords = "FAILED VALIDATION while, FAILED VALIDATION -, FAIL**  E, FAIL**  P, TESTCASE START -"
         command_output_request(jobids, command, username, password, option)
 
-
+    elif options == "7":
+        option = "istardust_poe_supply_redundancy"
+        keywords = "FAILED VALIDATION while executing command : alchemy poebasic, Passed! .* in alchemy poebasic, command is : {alchemy poeapprove .*}, /*/* Writing text to switch"
+        switch_log_request()
