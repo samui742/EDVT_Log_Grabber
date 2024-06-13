@@ -180,6 +180,7 @@ def switch_log_request():
                                 result_file.write(line + "\n")
 
                             for keyword in keyword_list:
+                                # print("keyword before re.search", keyword)
                                 match_k = re.search(f"{keyword}", line)
                                 if match_k:
                                     # print("line", line)
@@ -271,9 +272,13 @@ def extract_user_input (jobids):
         keyword_list.append(str(keywords).strip())
 
     # Add to support comma search. User has to input as semicolon
+    # After regexp option enabled, Add to support star search but adding backslash to escape star
     for i in range(len(keyword_list)):
         if ";" in keyword_list[i]:
             x = keyword_list[i].replace(";", ",")
+            keyword_list[i] = x
+        if "*" in keyword_list[i]:
+            x = keyword_list[i].replace("*", "\*")
             keyword_list[i] = x
 
     return jobid_list
@@ -920,7 +925,6 @@ if __name__ == '__main__':
     elif options == "5":
         option = "command_output"
         command = input("Enter the command: ")
-        # command = "command is : {" + command
         keywords = "FAILED VALIDATION while, FAILED VALIDATION -, FAIL**  E, FAIL**  P, TESTCASE START -"
         command_output_request(jobids, command, username, password, option)
 
