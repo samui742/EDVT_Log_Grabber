@@ -120,7 +120,7 @@ def grab_switch_logs():
 
     return content, url, corner_name
 
-def switch_log_request():
+def log_search():
     """Request logs from tt3 then search for the keywords line by line
     then print out on the console and also write into a text file"""
 
@@ -147,7 +147,7 @@ def switch_log_request():
 
         global uut
         for uut in selected_uut_list:
-            print(f'Processing switch{uut}....')
+            # print(f'Processing switch{uut}....')
             result_file = f"{jobid}_uut{uut}_{option}_result.txt"
             with open(result_file, "w") as result_file:
                 # for corner in corner_list:
@@ -627,7 +627,7 @@ def print_sfp_summary(jobid, uut, sfp_type_result, sfp_file_result):
         sfp_file_result.write(f'{index},{item_list[0]},{item_list[3]},{item_list[1]},{item_list[2]}' + '\n')
 
 
-def command_output_request(jobids_input, command_user, username, password, option):
+def command_extract(jobids_input, command_user, username, password, option):
 
     jobid_list = extract_user_input(jobids)
     command_list = extract_command_input(command_user)
@@ -905,17 +905,17 @@ if __name__ == '__main__':
     if options == "1":
         option = "keyword_search"
         keywords = input("Enter keywords separate by comma: ")
-        switch_log_request()
+        log_search()
 
     elif options == "2":
         option = "diag_traffic"
         keywords = "FAILED VALIDATION while, FAILED VALIDATION -, FAIL**  E, FAIL**  P, TESTCASE START -, Test(s) failed:"
-        switch_log_request()
+        log_search()
 
     elif options == "3":
         option = "istardust_traffic"
         keywords = "TESTCASE START -, FAILED VALIDATION while, FAILED VALIDATION -, Pass Fail, Fail Pass, Fail Fail, Status: Failed, ERROR DOYLE_FPGA, FAILED: Timeout,  ERROR: Leaba_Err"
-        switch_log_request()
+        log_search()
 
     elif options == "4":
         option = "diag_sfp_summary"
@@ -926,15 +926,15 @@ if __name__ == '__main__':
         option = "command_output"
         command = input("Enter the command: ")
         keywords = "FAILED VALIDATION while, FAILED VALIDATION -, FAIL**  E, FAIL**  P, TESTCASE START -"
-        command_output_request(jobids, command, username, password, option)
+        command_extract(jobids, command, username, password, option)
 
     elif options == "6":
         option = "bert_diag"
         command = "bershowresult"
         keywords = "FAILED VALIDATION while, FAILED VALIDATION -, FAIL**  E, FAIL**  P, TESTCASE START -"
-        command_output_request(jobids, command, username, password, option)
+        command_extract(jobids, command, username, password, option)
 
     elif options == "7":
         option = "istardust_poe_supply_redundancy"
         keywords = "FAILED VALIDATION while executing command : alchemy poebasic, Passed! .* in alchemy poebasic, command is : {alchemy poeapprove .*}, /*/* Writing text to switch"
-        switch_log_request()
+        log_search()
