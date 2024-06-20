@@ -125,6 +125,7 @@ def log_search():
     then print out on the console and also write into a text file"""
 
     jobid_list = extract_user_input(jobids)
+    print("keyword_list after extracted", keyword_list)
 
     global jobid
     for jobid in jobid_list:
@@ -179,26 +180,32 @@ def log_search():
                                 print(f'{bcolors.BOLD}{bcolors.WARNING}*** {line} ***{bcolors.ENDC}')
                                 result_file.write(line + "\n")
 
+                            # UNCOMMENT THIS FOR NORMAL SEARCH
+                            # for keyword in keyword_list:
+                            #     if keyword in line:
+
+                            # UNCOMMENT THIS FOR REGEXP SEARCH
                             for keyword in keyword_list:
                                 # print("keyword before re.search", keyword)
                                 match_k = re.search(f"{keyword}", line)
                                 if match_k:
+
                                     # print("line", line)
                                     # print(match_k.group(0))
                                     line_with_keyword_list.append(line)
                                     # To display testcase names on the report
                                     if "TESTCASE START" in line:
-                                        print("\t" + f'{bcolors.OKBLUE}{line}{bcolors.ENDC}')
+                                        print("\t" + f'{line}')
                                         result_file.write("\t" + line + "\n")
                                     else:
                                         if "fail" in line.casefold():
-                                            print("\t\t\t" + f'{bcolors.FAIL}{line}{bcolors.ENDC}')
-                                            result_file.write("\t\t\t" + line + "\n")
+                                            print("\t\t\t\t" + f'{bcolors.FAIL}{line}{bcolors.ENDC}')
+                                            result_file.write("\t\t\t\t" + line + "\n")
                                         elif "pass" in line.casefold():
-                                            print("\t\t\t" + f'{bcolors.OKGREEN}{line}{bcolors.ENDC}')
-                                            result_file.write("\t\t\t" + line + "\n")
+                                            print("\t\t\t\t" + f'{bcolors.OKGREEN}{line}{bcolors.ENDC}')
+                                            result_file.write("\t\t\t\t" + line + "\n")
                                         else:
-                                            print("\t\t\t" + f'{bcolors.OKBLUE}{line}{bcolors.ENDC}')
+                                            print("\t\t\t" + f'{bcolors.OKCYAN}{line}{bcolors.ENDC}')
                                             result_file.write("\t\t\t" + line + "\n")
             result_file.close()
 
@@ -278,7 +285,7 @@ def extract_user_input (jobids):
             x = keyword_list[i].replace(";", ",")
             keyword_list[i] = x
         if "*" in keyword_list[i]:
-            x = keyword_list[i].replace("*", "\*")
+            x = keyword_list[i].replace("**", "\*\*")
             keyword_list[i] = x
 
     return jobid_list
@@ -699,34 +706,42 @@ def command_extract(jobids_input, command_user, username, password, option):
                         # WRITE RESULT INTO TEXT FILE
                         command_output = []
                         for count, (command_user_index, stop_keyword_index) in enumerate(mapped, 1):
-                            if option != "bert_diag":
+                            if option != "bert_diag" and option != "ixia_diag_direct":
                                 print(f"\n################################################## {command.upper().strip('command is : {')} OUTPUT FOUND # {count} ##################################################\n")
                                 result_file.write(f"\n################################################## {command.upper().strip('command is : {')} OUTPUT FOUND # {count} ##################################################\n")
 
                             for line in lines[command_user_index - 1:stop_keyword_index + 1]:
-                                if option != "bert_diag":
+                                if option != "bert_diag" and option != "ixia_diag_direct":
                                     print("\t\t" + line)
                                     result_file.write("\t\t" + line + "\n")
-                                if option == "bert_diag":
+                                if option == "bert_diag" or option == "ixia_diag_direct":
                                     command_output.append(line)
 
                         # print(*command_output, sep='\n')
-                        if option == "bert_diag":
-                            # find index of the start and stop line of bershowresult command then append into a list
-                            header = " P#     Transmit      TxBytes    TxColFcs Receive       RxBytes      RxFcs Align RxCol OvrSz UndSz RxSym OvRun"
-                            footer = "Traf&gt; *****************************************************************************************************************"
 
+                        # FOR IXIA OR BERT SELECTIONS ONLY
+                        if option == "bert_diag" or option == "ixia_diag_direct" :
+                            # find index of the start and stop line of bershowresult command then append into a list
+                            if option == "bert_diag":
+                                header = "P#     Transmit      TxBytes    TxColFcs Receive       RxBytes      RxFcs Align RxCol OvrSz UndSz RxSym OvRun"
+                            elif option == "ixia_diag_direct":
+                                header = "P#   Transmit      TxBytes     TxErr  Receive      RxBytes     RxFcs RxIpg RxCol OvrSz UndSz RxSym OvRun"
+                            footer = "Traf&gt; *****************************************************************************************************************"
 
                             # TO REMOVE HEADER FOOTER
                             new_list = []
                             for i in range(len(command_output)):
                                 if header in command_output[i]:
+                                    # print('header', i)
                                     header_index = i
                                     new_list.append(header_index)
                                 if footer in command_output[i]:
+                                    # print('footer', i)
                                     footer_index = i
                                     new_list.append(footer_index)
+
                             # print(*new_list)
+                            # print(len(new_list))
 
                             # pair start and stop index in the list so we can process each bershowresult output at a time
                             pair_list = []
@@ -735,18 +750,19 @@ def command_extract(jobids_input, command_user, username, password, option):
                                     pair_list.append((new_list[i], new_list[(i + 1) % len(new_list)]))
 
                             # print(*pair_list)
-                            # print("==" * 100 + "\n" + "SUMMARY OF FAILED PORTS" + "\n" + "==" * 100)
-                            print("\n\t" + "SUMMARY OF FAILED PORTS" + "\n\t" + "-" * 100)
+                            # print("==" * 100 + "\n" + "SUMMARY OF PORTS WITH ERROR COUNTERS" + "\n" + "==" * 100)
+                            # print("\n\t" + "SUMMARY OF PORTS WITH ERROR COUNTERS" + "\n\t" + "-" * 100)
 
                             # print("command_output", *command_output, sep='\n')
                             # print("new_list", *new_list, sep='\n')
 
-                            list_of_dict = []
+                            # list_of_dict = []
+                            # s = {}
                             for index, item in enumerate(pair_list, 1):
                                 # print("==" * 100 + "\n" + f"{command} output number #" + str(index) + "\n", item)
-                                print("\n" + "\t\t" + f"{command.strip('command is : {')} output number #" + str(index))
+                                print("\n" + "\t\t" + f"{command.lstrip('command is : {')} output number #" + str(index))
                                 print("\t\t" + "==" * 50)
-                                print("\n\t\t" + "PORTS WITH ERROR" + "\n")
+                                print("\n\t\t" + "PORTS WITH ERROR COUNTERS" + "\n")
                                 (p1, p2) = item
                                 # print(*lines[p1:p2], sep='\n')
                                 focus_input = command_output[p1:p2]
@@ -758,29 +774,34 @@ def command_extract(jobids_input, command_user, username, password, option):
                                 focus_input.pop(0)
                                 # focus_input = [item.strip() for item in focus_input]
 
-                                print(*focus_input, sep='\n')
+                                # print(*focus_input, sep='\n')
                                 # print(len(focus_input))
 
-
+                                list_of_dict = []
                                 port_list = []
+                                nonzero_port = 0
+
                                 for x in range(len(focus_input)):
+
                                     s = {}
                                     f = focus_input[x].strip()
                                     f = " ".join(focus_input[x].split())
                                     line_interface = f.split()
-                                    print(line_interface)
+                                    # print(line_interface)
                                     # print(x)
                                     # print(l)
 
                                     # print(focus_input[i])
 
-                                    (*other, s["port"], s["transmit"], s["txbytes"], s["txerr"], s["receive"],
-                                     s["rxbytes"], s["rxfcs"], s["rxipg"], s["rxcol"], s["ovsz"], s["undsz"],
-                                     s["rxsym"], s["ovrun"]) = line_interface
+                                    if option == "bert_diag":
+                                        (*other, s["port"], s["transmit"], s["txbytes"], s["txcolfcs"], s["receive"],
+                                         s["rxbytes"], s["rxfcs"], s["align"], s["rxcol"], s["ovsz"], s["undsz"],
+                                         s["rxsym"], s["ovrun"]) = line_interface
+                                    elif option == "ixia_diag_direct":
+                                        (*other, s["port"], s["transmit"], s["txbytes"], s["txerr"], s["receive"],
+                                         s["rxbytes"], s["rxfcs"], s["rxipg"], s["rxcol"], s["ovsz"], s["undsz"],
+                                         s["rxsym"], s["ovrun"]) = line_interface
 
-                                    # (*other, port, transmit, txbytes, txerr, receive, rxbytes, rxfcs, rxipg,
-                                    #  rxcol, ovsz, undsz,
-                                    #  rxsym, ovrun) = line_interface
 
                                     s["port"] = s["port"].strip("*")
                                     port_list.append(s["port"])
@@ -794,20 +815,31 @@ def command_extract(jobids_input, command_user, username, password, option):
                                     # if transmit == "0000000000":
                                     #     print("\t\t\t" + focus_input[x])
 
-                                    if s["rxfcs"] != zero or s["rxipg"] != zero or s["rxcol"] != zero or s["ovsz"] != zero or s["undsz"] != zero or s["rxsym"] != zero or s["ovrun"] != zero:
-                                        print(f"{bcolors.FAIL}\t\t\t {focus_input[x]}{bcolors.ENDC}")
+
+                                    if option == "bert_diag":
+                                        if s["rxfcs"] != zero or s["align"] != zero or s["rxcol"] != zero or s["ovsz"] != zero or s["undsz"] != zero or s["rxsym"] != zero or s["ovrun"] != zero:
+                                            print(f"{bcolors.FAIL}\t\t\t {focus_input[x]}{bcolors.ENDC}")
+                                            nonzero_port = 1
+
+                                    elif option == "ixia_diag_direct":
+                                        if s["rxfcs"] != zero or s["rxipg"] != zero or s["rxcol"] != zero or s["ovsz"] != zero or s["undsz"] != zero or s["rxsym"] != zero or s["ovrun"] != zero:
+                                            print(f"{bcolors.FAIL}\t\t\t {focus_input[x]}{bcolors.ENDC}")
+                                            nonzero_port = 1
+
 
                                     if s["transmit"] == "0000000000":
                                         print(f"{bcolors.FAIL}\t\t\t {focus_input[x]}{bcolors.ENDC}")
 
+                                if nonzero_port == 0:
+                                    print(f"{bcolors.OKGREEN} \t\t\t\t NO ERROR COUNTERS FOUND ON ANY PORT{bcolors.ENDC}")
                                 # port_list.pop(0) # Remove first white space column
                                 # print(port_list)
 
-                                pp(list_of_dict)
+                                # pp(list_of_dict)
 
 ####################### TRAFFIC COUNTER ################
 
-                                snake_traffic = "yes"
+                                snake_traffic = "no"
                                 print("\n\t\t" + "PORTS WITH PACKETS DROP" + "\n")
 
                                 if snake_traffic == "yes":
@@ -819,10 +851,10 @@ def command_extract(jobids_input, command_user, username, password, option):
                                     for first, second in zipped:
                                         if not list_of_dict[first]["receive"] == list_of_dict[second]["transmit"]:
                                             print(
-                                                f'\t\t\tforward direction receive port {list_of_dict[first]["port"]} equals transmit port {list_of_dict[second]["port"]}')
+                                                f'{bcolors.OKGREEN}\t\t\t\tPASSED: forward direction port {list_of_dict[first]["port"]} receives {list_of_dict[first]["receive"]} equal to port {list_of_dict[second]["port"]} transmit {list_of_dict[second]["transmit"]}{bcolors.ENDC}')
                                         else:
                                             print(
-                                                f'{bcolors.FAIL}\t\t\t\tFAILURE: \t\tFORWARD DIRECTION port {list_of_dict[first]["port"]} receives {list_of_dict[first]["receive"]} does not equal to port {list_of_dict[second]["port"]} transmit {list_of_dict[second]["transmit"]}{bcolors.ENDC}')
+                                                f'{bcolors.FAIL}\t\t\t\t\tFAILURE: forward direction port {list_of_dict[first]["port"]} receives {list_of_dict[first]["receive"]} does not equal to port {list_of_dict[second]["port"]} transmit {list_of_dict[second]["transmit"]}{bcolors.ENDC}')
 
                                     backward_receive_list = [1, 22, 20, 18, 16, 14, 12, 10, 8, 6, 4, 2]
                                     backward_transmit_list = [23, 21, 19, 17, 15, 13, 11, 9, 7, 5, 3, 0]
@@ -832,23 +864,25 @@ def command_extract(jobids_input, command_user, username, password, option):
                                     for first, second in zipped:
                                         if list_of_dict[first]["receive"] == list_of_dict[second]["transmit"]:
                                             print(
-                                                f'\t\t\tbackward direction receive port {list_of_dict[first]["port"]} equals transmit port {list_of_dict[second]["port"]}')
+                                                f'{bcolors.OKGREEN}\t\t\t\tPASSED: backward direction port {list_of_dict[first]["port"]} receives {list_of_dict[first]["receive"]} equal to port {list_of_dict[second]["port"]} transmit {list_of_dict[second]["transmit"]}{bcolors.ENDC}')
                                         else:
                                             print(
-                                                f'{bcolors.FAIL}\t\t\t\tFAILURE: \t\tBACKWARD DIRECTION port {list_of_dict[first]["port"]} receives {list_of_dict[first]["receive"]} does not equal to port {list_of_dict[second]["port"]} transmit {list_of_dict[second]["transmit"]}{bcolors.ENDC}')
+                                                f'{bcolors.FAIL}\t\t\t\t\tFAILURE: backward direction port {list_of_dict[first]["port"]} receives {list_of_dict[first]["receive"]} does not equal to port {list_of_dict[second]["port"]} transmit {list_of_dict[second]["transmit"]}{bcolors.ENDC}')
                                 else:
                                     forward_receive_list = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22]
                                     forward_transmit_list = [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23]
 
                                     zipped = zip(forward_receive_list, forward_transmit_list)
                                     print("\n\t\t\t" + "FORWARDING DIRECTION :" + "\n")
+
                                     for first, second in zipped:
+                                        # print(first, second)
                                         if list_of_dict[first]["receive"] == list_of_dict[second]["transmit"]:
                                             print(
-                                                f'\t\t\tforward direction receive port {list_of_dict[first]["port"]} {list_of_dict[first]["receive"]} frames equals transmit port {list_of_dict[second]["port"]} {list_of_dict[second]["transmit"]} frames')
+                                                f'{bcolors.OKGREEN}\t\t\t\tPASSED: forward direction port {list_of_dict[first]["port"]} receives {list_of_dict[first]["receive"]} equal to port {list_of_dict[second]["port"]} transmit {list_of_dict[second]["transmit"]}{bcolors.ENDC}')
                                         else:
                                             print(
-                                                f'{bcolors.FAIL}\t\t\t\tFAILURE: FORWARD DIRECTION port {list_of_dict[first]["port"]} receives {list_of_dict[first]["receive"]} does not equal to port {list_of_dict[second]["port"]} transmit {list_of_dict[second]["transmit"]}{bcolors.ENDC}')
+                                                f'{bcolors.FAIL}\t\t\t\t\tFAILURE: forward direction port {list_of_dict[first]["port"]} receives {list_of_dict[first]["receive"]} does not equal to port {list_of_dict[second]["port"]} transmit {list_of_dict[second]["transmit"]}{bcolors.ENDC}')
 
                                     backward_receive_list = [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23]
                                     backward_transmit_list = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22]
@@ -858,10 +892,10 @@ def command_extract(jobids_input, command_user, username, password, option):
                                     for first, second in zipped:
                                         if list_of_dict[first]["receive"] == list_of_dict[second]["transmit"]:
                                             print(
-                                                f'\t\t\tbackward direction receive port {list_of_dict[first]["port"]} {list_of_dict[first]["receive"]} frames equals transmit port {list_of_dict[second]["port"]} {list_of_dict[second]["transmit"]} frames')
+                                                f'{bcolors.OKGREEN}\t\t\t\tPASSED: backward direction port {list_of_dict[first]["port"]} receives {list_of_dict[first]["receive"]} equal to port {list_of_dict[second]["port"]} transmit {list_of_dict[second]["transmit"]}{bcolors.ENDC}')
                                         else:
                                             print(
-                                                f'{bcolors.FAIL}\t\t\t\tFAILURE: BACKWARD DIRECTION port {list_of_dict[first]["port"]} receives {list_of_dict[first]["receive"]} does not equal to port {list_of_dict[second]["port"]} transmit {list_of_dict[second]["transmit"]}{bcolors.ENDC}')
+                                                f'{bcolors.FAIL}\t\t\t\t\tFAILURE: backward direction port {list_of_dict[first]["port"]} receives {list_of_dict[first]["receive"]} does not equal to port {list_of_dict[second]["port"]} transmit {list_of_dict[second]["transmit"]}{bcolors.ENDC}')
 
             
 
@@ -897,7 +931,8 @@ if __name__ == '__main__':
     4 - diag sfp summary "generate sfp summary by using output from opticaltest to map with edvt database"\n\
     5 - search specific command output "user can specific the command(s) that user would like to see the output\n\
     6 - ber diag (non-snake traffic)\n\
-    7 - istardust poe supply redundancy\n\
+    7 - ixia diag (non-snake traffic)\n\
+    8 - istardust poe supply redundancy\n\
     \n\nPlease enter the option number: ')
 
 
@@ -909,32 +944,40 @@ if __name__ == '__main__':
 
     elif options == "2":
         option = "diag_traffic"
-        keywords = "FAILED VALIDATION while, FAILED VALIDATION -, FAIL**  E, FAIL**  P, TESTCASE START -, Test(s) failed:"
+        keywords = "FAILED: Timeout, FAILED VALIDATION while, FAILED VALIDATION -, FAIL**  E, FAIL**  P, TESTCASE START -, Test(s) failed:"
         log_search()
 
     elif options == "3":
         option = "istardust_traffic"
-        keywords = "TESTCASE START -, FAILED VALIDATION while, FAILED VALIDATION -, Pass Fail, Fail Pass, Fail Fail, Status: Failed, ERROR DOYLE_FPGA, FAILED: Timeout,  ERROR: Leaba_Err"
+        keywords = "FAILED: Timeout, TESTCASE START -, FAILED VALIDATION while, FAILED VALIDATION -, Pass Fail, Fail Pass, Fail Fail, Status: Failed, ERROR DOYLE_FPGA, ERROR: Leaba_Err"
         log_search()
 
     elif options == "4":
         option = "diag_sfp_summary"
-        keywords = "FAILED VALIDATION while, FAILED VALIDATION -, FAIL**  E, FAIL**  P, TESTCASE START -"
+        keywords = "FAILED: Timeout, FAILED VALIDATION while, FAILED VALIDATION -, FAIL**  E, FAIL**  P, TESTCASE START -"
         diag_sfp_report()
 
     elif options == "5":
         option = "command_output"
         command = input("Enter the command: ")
-        keywords = "FAILED VALIDATION while, FAILED VALIDATION -, FAIL**  E, FAIL**  P, TESTCASE START -"
+        keywords = "FAILED: Timeout, FAILED VALIDATION while, FAILED VALIDATION -, FAIL**  E, FAIL**  P, TESTCASE START -"
         command_extract(jobids, command, username, password, option)
 
     elif options == "6":
         option = "bert_diag"
         command = "bershowresult"
-        keywords = "FAILED VALIDATION while, FAILED VALIDATION -, FAIL**  E, FAIL**  P, TESTCASE START -"
+        keywords = "FAILED: Timeout, FAILED VALIDATION while, FAILED VALIDATION -, FAIL**  E, FAIL**  P, TESTCASE START -, Failure :"
         command_extract(jobids, command, username, password, option)
 
     elif options == "7":
+        option = "ixia_diag_direct"
+        command = "statshow"
+        keywords = "FAILED: Timeout, FAILED VALIDATION while, FAILED VALIDATION -, FAIL**  E, FAIL**  P, TESTCASE START -, Failure :"
+        command_extract(jobids, command, username, password, option)
+
+    elif options == "8":
         option = "istardust_poe_supply_redundancy"
-        keywords = "FAILED VALIDATION while executing command : alchemy poebasic, Passed! .* in alchemy poebasic, command is : {alchemy poeapprove .*}, /*/* Writing text to switch"
+        # keywords = "FAILED VALIDATION while executing command : alchemy poebasic, in alchemy poebasic, command is : {alchemy poeapprove, ** Writing text to switch"
+        # keywords = "FAILED VALIDATION while executing command : alchemy poebasic, Passed! .* in alchemy poebasic, command is : {alchemy poeapprove, ** Writing text to switch"
+        keywords = "FAILED: Timeout, FAILED VALIDATION while executing command : alchemy poebasic, Passed! .* in alchemy poebasic, command is : {alchemy poeapprove, .*Writing text to switch"
         log_search()
